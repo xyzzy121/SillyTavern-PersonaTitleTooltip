@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Additional Info Tooltips browser harness</title>
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        :root {
+            --SmartThemeBodyColor: rgb(235, 235, 235);
+            --SmartThemeBlurTintColor: rgba(23, 23, 23, 0.97);
+            --SmartThemeBorderColor: rgba(255, 255, 255, 0.25);
+            --SmartThemeShadowColor: rgba(0, 0, 0, 0.45);
+            --mainFontFamily: system-ui, sans-serif;
+            --mainFontSize: 15px;
+        }
+
+        body {
+            margin: 2rem;
+            background: #eceff4;
+            color: #20242b;
+            font-family: system-ui, sans-serif;
+        }
+
+        #card {
+            width: 170px;
+            padding: 1rem;
+            border: 1px solid #8992a3;
+            border-radius: 8px;
+        }
+
+        .ch_additional_info {
+            display: block;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #results li[data-status='pass'] {
+            color: #087a35;
+        }
+
+        #results li[data-status='fail'] {
+            color: #b42318;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <h1>Additional Info Tooltips browser harness</h1>
+    <div id="card" class="avatar-container">
+        <small id="target" class="ch_additional_info" aria-describedby="existing-description">Initial full text &lt;img onerror=alert(1)&gt;</small>
+    </div>
+    <span id="existing-description" hidden>Existing accessible description</span>
+    <div id="outside">Outside target</div>
+    <ol id="results" aria-label="Test results"></ol>
+    <p id="summary" role="status">Running…</p>
+
+    <script type="module">
+        import { onActivate, onDisable } from '../index.js';
+
+        const results = document.querySelector('#results');
+        const summary = document.querySelector('#summary');
+        const card = document.querySelector('#card');
+        const outside = document.querySelector('#outside');
+        let target = document.querySelector('#target');
+        let cardClicks = 0;
+        let passed = 0;
+        let failed = 0;
+
+        card.addEventListener('click', () => cardClicks++);
+
+        const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+        const tooltip = () => document.querySelector('#ait-full-text-tooltip');
+        const isOpen = () => Boolean(tooltip() && !tooltip().hidden);
+
+        function pointer(node, type, options = {}) {
+            const event = new PointerEvent(type, {
+                bubbles: true,
+                cancelable: true,
+                composed: true,
+                pointerId: options.pointerId ?? 1,
+                pointerType: options.pointerType ?? 'mouse',
+                isPrimary: options.isPrimary ?? true,
+                button: options.button ?? 0,
+                buttons: options.buttons ?? (type === 'pointerup' ? 0 : 1),
+                clientX: options.clientX ?? 80,
+                clientY: options.clientY ?? 80,
+                relatedTarget: options.relatedTarget ?? null,
+            });
+            node.dispatchEvent(event);
+            return event;
+        }
+
+        function click(node) {
+            const event = new MouseEvent('click', { bubbles: true, cancelable: true, composed: true });
+            node.dispatchEvent(event);
+            return event;
+        }
+
+        function check(name, condition, detail = '') {
+            const item = document.createElement('li');
+            item.dataset.status = condition ? 'pass' : 'fail';
+            item.textContent = `${condition ? 'PASS' : 'FAIL'} — ${name}${detail ? `: ${detail}` : ''}`;
+            results.append(item);
+            if (condition) passed++;
+            else failed++;
+        }
+
+        onActivate();
+        check('activation creates exactly one tooltip', document.querySelectorAll('#ait-full-text-tooltip').length === 1);
+
+        pointer(target, 'pointerover', { pointerType: 'mouse' });
+        await wait(170);
+        check('mouse hover opens the tooltip', isOpen());
+        check('tooltip uses exact textContent', tooltip().textContent === target.textContent.trim());
+        check('tooltip content is not parsed as HTML', tooltip().querySelector('img') === null);
+        check('existing aria-describedby token is preserved', target.getAttribute('aria-describedby') === 'existing-description ait-full-text-tooltip');
+
+        pointer(target, 'pointerout', { pointerType: 'mouse', relatedTarget: outside });
+        await wait(50);
+        check('hover exit has a tooltip-crossing grace period', isOpen());
+        pointer(tooltip(), 'pointerenter', { pointerType: 'mouse', relatedTarget: target });
+        await wait(220);
+        check('pointer can move onto the tooltip without closing it', isOpen());
+        pointer(tooltip(), 'pointerleave', { pointerType: 'mouse', relatedTarget: outside });
+        await wait(220);
+        check('leaving both target and tooltip closes it', !isOpen());
+        check('extension removes only its aria-describedby token', target.getAttribute('aria-describedby') === 'existing-description');
+
+        pointer(target, 'pointerdown', { pointerType: 'touch', pointerId: 2 });
+        await wait(40);
+        pointer(target, 'pointerup', { pointerType: 'touch', pointerId: 2 });
+        click(target);
+        check('ordinary mobile tap keeps the original card click', cardClicks === 1);
+        check('ordinary mobile tap does not open the tooltip', !isOpen());
+
+        pointer(target, 'pointerdown', { pointerType: 'touch', pointerId: 3 });
+        await wait(610);
+        check('550 ms touch hold opens the tooltip', isOpen());
+        pointer(target, 'pointerup', { pointerType: 'touch', pointerId: 3 });
+        click(card);
+        check('a card-retargeted long-press click is suppressed', cardClicks === 1);
+        check('long-press tooltip remains pinned after release', isOpen());
+
+        pointer(outside, 'pointerdown', { pointerType: 'touch', pointerId: 4 });
+        pointer(outside, 'pointerup', { pointerType: 'touch', pointerId: 4 });
+        check('outside tap dismisses a pinned tooltip', !isOpen());
+
+        pointer(target, 'pointerdown', { pointerType: 'touch', pointerId: 5, clientX: 10, clientY: 10 });
+        pointer(target, 'pointermove', { pointerType: 'touch', pointerId: 5, clientX: 35, clientY: 10 });
+        await wait(610);
+        pointer(target, 'pointerup', { pointerType: 'touch', pointerId: 5, clientX: 35, clientY: 10 });
+        click(target);
+        check('movement cancels a pending long press', !isOpen());
+        check('a cancelled long press does not suppress the click', cardClicks === 2);
+
+        const dynamic = document.createElement('small');
+        dynamic.id = 'dynamic-target';
+        dynamic.className = 'ch_additional_info';
+        dynamic.textContent = 'Dynamically inserted full text';
+        document.body.append(dynamic);
+        pointer(dynamic, 'pointerover', { pointerType: 'mouse' });
+        await wait(170);
+        check('delegation covers dynamically inserted targets', isOpen() && tooltip().textContent === dynamic.textContent);
+
+        dynamic.textContent = 'Updated while open';
+        await wait(30);
+        check('an open tooltip follows live text changes', tooltip().textContent === 'Updated while open');
+
+        dynamic.textContent = Array.from({ length: 200 }, (_, index) => `Full-text line ${index + 1}`).join('\n');
+        await wait(50);
+        check(
+            'very long text is viewport-limited and scrollable',
+            tooltip().scrollHeight > tooltip().clientHeight && getComputedStyle(tooltip()).pointerEvents === 'auto',
+        );
+
+        dynamic.remove();
+        await wait(30);
+        check('removing the active target closes the tooltip', !isOpen());
+
+        onActivate();
+        target = document.querySelector('#target');
+        check('re-activation remains idempotent', document.querySelectorAll('#ait-full-text-tooltip').length === 1);
+
+        onDisable();
+        check('disable hook removes the tooltip', document.querySelector('#ait-full-text-tooltip') === null);
+        check('disable hook restores aria-describedby', target.getAttribute('aria-describedby') === 'existing-description');
+
+        summary.dataset.status = failed === 0 ? 'pass' : 'fail';
+        summary.textContent = `${passed} passed, ${failed} failed`;
+        document.title = failed === 0 ? `PASS (${passed})` : `FAIL (${failed})`;
+    </script>
+</body>
+</html>

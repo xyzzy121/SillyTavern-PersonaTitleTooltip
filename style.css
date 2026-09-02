@@ -1,0 +1,86 @@
+/* Full-text tooltip shared by every small.ch_additional_info element. */
+
+.ait-tooltip {
+    --ait-arrow-x: 50%;
+
+    position: fixed;
+    z-index: 30000;
+    box-sizing: border-box;
+    width: max-content;
+    max-width: min(32rem, calc(100vw - 16px));
+    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.2));
+    border-radius: 8px;
+    background: var(--SmartThemeBlurTintColor, rgba(23, 23, 23, 0.97));
+    box-shadow: 0 5px 18px var(--SmartThemeShadowColor, rgba(0, 0, 0, 0.45));
+    color: var(--SmartThemeBodyColor, rgb(235, 235, 235));
+    font-family: var(--mainFontFamily, sans-serif);
+    font-size: calc(var(--mainFontSize, 15px) * 0.9);
+    font-style: normal;
+    font-weight: 400;
+    line-height: 1.4;
+    text-align: start;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    pointer-events: auto;
+    touch-action: pan-y;
+    user-select: text;
+    opacity: 0;
+    transition: opacity var(--animation-duration, 125ms) ease;
+}
+
+.ait-tooltip[hidden] {
+    display: none !important;
+}
+
+.ait-tooltip[data-visible='true'] {
+    opacity: 1;
+}
+
+.ait-tooltip::after {
+    position: absolute;
+    left: var(--ait-arrow-x);
+    width: 9px;
+    height: 9px;
+    border: solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.2));
+    background: var(--SmartThemeBlurTintColor, rgba(23, 23, 23, 0.97));
+    content: '';
+    transform: translateX(-50%) rotate(45deg);
+}
+
+.ait-tooltip[data-placement='above']::after {
+    bottom: -5px;
+    border-width: 0 1px 1px 0;
+}
+
+.ait-tooltip[data-placement='below']::after {
+    top: -5px;
+    border-width: 1px 0 0 1px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    small.ch_additional_info {
+        cursor: help;
+    }
+}
+
+/* Prevent the native selection/callout from competing with the custom long
+   press. The tooltip itself contains the complete, unmodified text. */
+@media (hover: none), (pointer: coarse) {
+    small.ch_additional_info {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ait-tooltip {
+        transition: none;
+    }
+}

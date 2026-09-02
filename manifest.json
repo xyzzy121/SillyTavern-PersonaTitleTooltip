@@ -1,0 +1,12 @@
+{
+    "display_name": "Additional Info Tooltips",
+    "loading_order": 100,
+    "js": "index.js",
+    "css": "style.css",
+    "author": "Paradox",
+    "version": "1.0.0",
+    "hooks": {
+        "activate": "onActivate",
+        "disable": "onDisable"
+    }
+}
